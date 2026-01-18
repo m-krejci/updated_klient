@@ -1,6 +1,9 @@
 import pygame
 
 class Card:
+    """
+    Třída udržující informace o kartě
+    """
     def __init__(self, name, image, x, y):
         self.name = name
         self.image = image

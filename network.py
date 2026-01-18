@@ -145,7 +145,7 @@ class Network(threading.Thread):
                 print(f"[NETWORK] Loop #{loop_counter}: Socket timeout (normální, pokračuji)")
                 continue
 
-            except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError, 
+            except (ConnectionAbortedError, BrokenPipeError, 
                     OSError, ConnectionError) as e:
                 print(f"[NETWORK] !!! Chyba spojení: {type(e).__name__}: {e}")
                 
@@ -158,6 +158,9 @@ class Network(threading.Thread):
                         self.message_queue.put(("network_lost", f"{type(e).__name__}: {str(e)}"))
                 break
 
+            except ConnectionResetError:
+                print(e)
+                break
             except Exception as e:
                 print(f"[NETWORK] !!! Neočekávaná chyba: {type(e).__name__}: {e}")
                 import traceback

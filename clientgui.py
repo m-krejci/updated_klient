@@ -388,7 +388,11 @@ class ClientGUI:
                     self.game_console.log("Spojení ztraceno, pokouším se o reconnect", True)
                     self.connected = False
                     self.game_state = GameState.DISCONNECTED
-                    self.start_reconnect_thread()
+                    if "10054" in item[1]:
+                        self.waiting_for_login_response = False
+                        self.connect_error = item[1]
+                    else:
+                        self.start_reconnect_thread()
                     continue  # Zpracuj další zprávy
                 
                 # PRIORITA 2: error
