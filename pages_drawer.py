@@ -3,6 +3,7 @@ from constants import *
 from ui_elements import *
 # from clientgui import ClientGUI
 from card import Card
+from logger import *
 
 class PageDrawer:
     def __init__(self, screen, font, ui: UI):
@@ -22,7 +23,6 @@ class PageDrawer:
         self.ui.draw_error(rect, error)
 
     def draw_connect_screen(self, state):
-        # print("Drawing connect screen")
         self.screen.fill((168, 255, 255))
         mouse_pos = pygame.mouse.get_pos()
 
@@ -234,8 +234,8 @@ class PageDrawer:
             for i, card in enumerate(state.card_objects):
                 x = start_x + spacing * i
                 card.rect.topleft = (x, y)
-        except:
-            print("HAHA LAYOUT")
+        except Exception as e:
+            log_msg(INFO, e)
 
     def draw_sequence(self, state):
         state.sequence_rects = []
@@ -318,7 +318,7 @@ class PageDrawer:
                         try:
                             rank_value = int(rank_first)
                         except Exception as e:
-                            print(e)
+                            log_msg(ERROR, e)
 
                     suit_first = values[state.cards_list[i][1]]
                     rank_second = state.cards_list[j][0]
@@ -328,7 +328,7 @@ class PageDrawer:
                         try:
                             rank_value_2 = int(rank_second)
                         except Exception as e:
-                            print(e)
+                            log_msg(ERROR, e)
                     suit_second = values[state.cards_list[j][1]]
                     first = rank_value + suit_first
                     second = rank_value_2 + suit_second

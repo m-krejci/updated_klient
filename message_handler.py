@@ -1,5 +1,6 @@
 from constants import *
 import socket
+from logger import *
 
 
 def build_message(type_msg: str, message: str):
@@ -14,7 +15,7 @@ def build_message(type_msg: str, message: str):
     """
     msg_len = len(message)
     if msg_len > MAX_MESSAGE_LEN:
-        print("Moc dlouhá zpráva")
+        log_msg(ERROR, "Moc dlouhá zpráva")
         return -1
     
     header = f"{MAGIC}{type_msg:<{TYPE_LEN}}{msg_len:04d}"

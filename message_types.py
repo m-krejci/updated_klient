@@ -42,3 +42,4 @@ class Message_types(Enum):
     GAME: str = "GAME"
     RECO: str = "RECO"
     RRRR: str = "RRRR"
+    ECNT: str = "ECNT"

@@ -1,68 +1,72 @@
 import logging
 import sys
-import threading
-from datetime import datetime
-from enum import IntEnum
+import os
+from threading import Lock
 
-class LogLevel(IntEnum):
-    DEBUG = 0
-    INFO = 1
-    WARN = 2
-    ERROR = 3
-    FATAL = 4
+# Definice úrovní (odpovídá vašemu log_level_t)
+DEBUG = logging.DEBUG
+INFO = logging.INFO
+WARN = logging.WARNING
+ERROR = logging.ERROR
+FATAL = logging.CRITICAL
 
 class Logger:
-    _level_str = ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"]
-    
     def __init__(self):
-        self.min_level = LogLevel.INFO
-        self.log_file = sys.stdout
-        self.lock = threading.Lock()
+        self._logger = logging.getLogger("AppLogger")
+        self._logger.propagate = False
+        self._handler = None
+        self._lock = Lock()
 
-    def log_init(self, filename: str = None, min_level: LogLevel = LogLevel.INFO):
+    def log_init(self, filename=None, min_level=INFO):
         """Inicializace loggeru (ekvivalent log_init v C)"""
-        self.min_level = min_level
+        # Odstraníme staré handlery, pokud existují
+        if self._logger.handlers:
+            for h in self._logger.handlers[:]:
+                self._logger.removeHandler(h)
+
         if filename:
-            try:
-                self.log_file = open(filename, "a", encoding="utf-8")
-            except Exception as e:
-                print(f"Nepodařilo se otevřít log soubor: {e}")
-                return -1
+            self._handler = logging.FileHandler(filename, mode='a', encoding="utf-8")
         else:
-            self.log_file = sys.stdout
-        return 0
+            self._handler = logging.StreamHandler(sys.stdout)
+
+        # Formát odpovídající vašemu fprintf: 
+        # [Čas] [Level] [TID] Soubor:Linka: Zpráva
+        formatter = logging.Formatter(
+            '[%(asctime)s] [%(levelname)s] [TID:%(thread)d] %(filename)s:%(lineno)d: %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        
+        self._handler.setFormatter(formatter)
+        self._logger.addHandler(self._handler)
+        self._logger.setLevel(min_level)
+
+    def log_msg(self, level, message, *args):
+        """Zápis zprávy (v Pythonu se file a line doplňují automaticky)"""
+        # Python logging je thread-safe, ale pro 100% shodu s C verzí můžeme použít zámek
+        with self._lock:
+            if args:
+                self._logger.log(level, message % args)
+            else:
+                self._logger.log(level, message)
+
+    def log_delete(self):
+        """Promazání logovacího souboru (ekvivalent ftruncate)"""
+        if isinstance(self._handler, logging.FileHandler):
+            with self._lock:
+                filepath = self._handler.baseFilename
+                # Otevření v režimu 'w' soubor vymaže
+                with open(filepath, 'w'):
+                    pass
 
     def log_close(self):
-        """Zavření souboru (ekvivalent log_close v C)"""
-        if self.log_file and self.log_file != sys.stdout:
-            self.log_file.close()
+        """Zavření loggeru"""
+        if self._handler:
+            self._handler.close()
+            self._logger.removeHandler(self._handler)
 
-    def log_msg(self, level: LogLevel, file: str, line: int, message: str):
-        """Hlavní logovací metoda (ekvivalent log_msg v C)"""
-        if level < self.min_level:
-            return
-
-        with self.lock:
-            now = datetime.now()
-            time_str = now.strftime("%Y-%m-%d %H:%M:%S")
-            tid = threading.get_ident()
-
-            log_line = (
-                f"[{time_str}] [{self._level_str[level]}] [TID:{tid}] "
-                f"{file}:{line}: {message}"
-            )
-
-            print(log_line, file=self.log_file)
-            self.log_file.flush()
-
-logger = Logger()
-
-def LOG_INFO(msg):
-    import inspect
-    frame = inspect.currentframe().f_back
-    logger.log_msg(LogLevel.INFO, frame.f_code.co_filename, frame.f_lineno, msg)
-
-def LOG_ERROR(msg):
-    import inspect
-    frame = inspect.currentframe().f_back
-    logger.log_msg(LogLevel.ERROR, frame.f_code.co_filename, frame.f_lineno, msg)
+# --- Globální instance pro snadné použití ---
+_instance = Logger()
+log_init = _instance.log_init
+log_msg = _instance.log_msg
+log_delete = _instance.log_delete
+log_close = _instance.log_close

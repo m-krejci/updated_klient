@@ -13,6 +13,7 @@ from pages_drawer import *
 import sys
 import queue
 import threading
+from logger import *
 
 
 class ClientGUI:
@@ -163,7 +164,7 @@ class ClientGUI:
                     self.cards[name] = pygame.transform.smoothscale(img, size=CARD_SIZE)
                 
                 except:
-                    print(f"Nebylo možné načíst kartu [{name}.png]")
+                    log_msg(ERROR, f"Nebylo možné načíst kartu [{name}.png]")
 
         # Načtení zadní strany karet
         try:
@@ -171,21 +172,21 @@ class ClientGUI:
             self.cards["BS"] = pygame.transform.smoothscale(img, size=CARD_SIZE)
 
         except:
-            print(f"Nebylo možné načíst kartu [BS.png]")
+            log_msg(ERROR, f"Nebylo možné načíst kartu [BS.png]")
 
         try:
             img = pygame.image.load(os.path.join(CARDS_PATH, "YY.png"))
             self.cards["YY"] = pygame.transform.smoothscale(img, size=CARD_SIZE)
 
         except:
-            print(f"Nebylo možné načíst kartu [YY.png]")
+            log_msg(ERROR, f"Nebylo možné načíst kartu [YY.png]")
     
     def _threaded_connect_process(self):
         try:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.sock.settimeout(5.0) 
             
-            print(f"Pokus o připojení k: {self.server_text}:{self.port_text}")
+            log_msg(INFO, f"Pokus o připojení k: {self.server_text}:{self.port_text}")
             self.sock.connect((self.server_text, int(self.port_text)))
             
             self.sock.settimeout(None)
@@ -196,34 +197,33 @@ class ClientGUI:
             self.send_message(Message_types.LOGI.value, self.login_text)
             
         except Exception as e:
-            print(f"Chyba při navazování spojení: {e}")
+            log_msg(ERROR, f"Chyba při navazování spojení: {e}")
             self.connected = False
             self.waiting_for_login_response = False
             self.connect_error = f"Chyba připojení: {e}"
 
     def send_message(self, type_msg: str, msg: str):
         """Odesílá zprávu na server"""
-        print(f"[SEND] Pokus o odeslání: type={type_msg}, msg={msg[:50] if len(msg) > 50 else msg}")
-        print(f"[SEND] connected={self.connected}, sock={'OK' if self.sock else 'NONE'}")
+        log_msg(INFO, f"[SEND] Pokus o odeslání: type={type_msg}, msg={msg[:50] if len(msg) > 50 else msg}")
+        log_msg(INFO, f"[SEND] connected={self.connected}, sock={'OK' if self.sock else 'NONE'}")
         
         if not self.connected:
-            print(f"[SEND] !!! NELZE ODESLAT - není connected")
+            log_msg(ERROR, f"[SEND] !!! NELZE ODESLAT - není connected")
             self.game_console.log("Nelze odeslat - odpojeno", True)
             return
         
         if not self.sock:
-            print(f"[SEND] !!! NELZE ODESLAT - sock je None")
+            log_msg(ERROR, f"[SEND] !!! NELZE ODESLAT - sock je None")
             self.game_console.log("Nelze odeslat - chybí socket", True)
             return
         
         try:
             packet = build_message(type_msg, msg)
-            print(f"[SEND] Odesílám packet...")
+            log_msg(INFO, f"[SEND] Odesílám packet...")
             self.sock.sendall(packet)
-            print(f"[SEND] ✓ Odesláno úspěšně")
 
         except (BrokenPipeError, ConnectionResetError, OSError) as e:
-            print(f"[SEND] !!! Chyba při odesílání: {type(e).__name__}: {e}")
+            log_msg(ERROR, f"[SEND] !!! Chyba při odesílání: {type(e).__name__}: {e}")
             self.game_console.log("Chyba při odesílání - spojení ztraceno", True)
             
             # Spustí reconnect
@@ -231,7 +231,7 @@ class ClientGUI:
             self.message_queue.put(("network_lost", f"send failed: {e}"))
             
         except Exception as e:
-            print(f"[SEND] !!! Neočekávaná chyba: {type(e).__name__}: {e}")
+            log_msg(ERROR, f"[SEND] !!! Neočekávaná chyba: {type(e).__name__}: {e}")
             import traceback
             traceback.print_exc()
 
@@ -278,24 +278,24 @@ class ClientGUI:
 
     def start_reconnect_thread(self):
         """Spustí reconnect vlákno pokud již neběží"""
-        print(f"[RECONNECT] start_reconnect_thread() voláno, _reconnecting={getattr(self, '_reconnecting', False)}")
+        log_msg(INFO, f"[RECONNECT] start_reconnect_thread() voláno, _reconnecting={getattr(self, '_reconnecting', False)}")
         
         if getattr(self, "_reconnecting", False):
-            print(f"[RECONNECT] Už běží, skip")
+            log_msg(INFO, f"[RECONNECT] Už běží, skip")
             return
         
-        print(f"[RECONNECT] Nastavuji _reconnecting=True")
+        log_msg(INFO, f"[RECONNECT] Nastavuji _reconnecting=True")
         self._reconnecting = True
         self.connected = False
         self.game_state = GameState.DISCONNECTED
         
-        print(f"[RECONNECT] Spouštím reconnect thread")
+        log_msg(INFO, f"[RECONNECT] Spouštím reconnect thread")
         t = threading.Thread(target=self._threaded_reconnect_process, daemon=True)
         t.start()
-        print(f"[RECONNECT] Thread spuštěn")
+        log_msg(INFO, f"[RECONNECT] Thread spuštěn")
 
     def _threaded_reconnect_process(self):
-        print(f"[RECONNECT] ========== Reconnect thread START ==========")
+        log_msg(INFO, f"[RECONNECT] Reconnect thread START ")
         attempts = 0
         max_attempts = 10
         backoff_time = 2
@@ -304,60 +304,60 @@ class ClientGUI:
             attempts += 1
             wait_time = min(backoff_time * (2 ** (attempts - 1)), 30)
             
-            print(f"[RECONNECT] Pokus #{attempts}/{max_attempts}, čekám {wait_time}s...")
+            log_msg(INFO, f"[RECONNECT] Pokus #{attempts}/{max_attempts}, čekám {wait_time}s...")
             time.sleep(wait_time)
             
             if not self.running:
-                print(f"[RECONNECT] self.running=False, končím")
+                log_msg(INFO, f"[RECONNECT] self.running=False, končím")
                 break
             
             try:
-                print(f"[RECONNECT] Pokus #{attempts}: Cleanup starého spojení...")
+                log_msg(INFO, f"[RECONNECT] Pokus #{attempts}: Cleanup starého spojení...")
                 # 1. Cleanup starého spojení
                 if self.network_thread:
-                    print(f"[RECONNECT] Zastavuji staré network vlákno...")
+                    log_msg(INFO, f"[RECONNECT] Zastavuji staré network vlákno...")
                     self.network_thread.stop()
                     self.network_thread = None
-                    print(f"[RECONNECT] Staré vlákno zastaveno")
+                    log_msg(INFO, f"[RECONNECT] Staré vlákno zastaveno")
                 
                 if self.sock:
-                    print(f"[RECONNECT] Zavírám starý socket...")
+                    log_msg(INFO, f"[RECONNECT] Zavírám starý socket...")
                     try:
                         self.sock.close()
                     except:
                         pass
                     self.sock = None
-                    print(f"[RECONNECT] Starý socket zavřen")
+                    log_msg(INFO, f"[RECONNECT] Starý socket zavřen")
                 
                 # 2. Vytvoření nového socketu
-                print(f"[RECONNECT] Vytvářím nový socket...")
+                log_msg(INFO, f"[RECONNECT] Vytvářím nový socket...")
                 new_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 new_sock.settimeout(5.0)
                 
-                print(f"[RECONNECT] Připojuji se k {self.server_text}:{self.port_text}...")
+                log_msg(INFO, f"[RECONNECT] Připojuji se k {self.server_text}:{self.port_text}...")
                 new_sock.connect((self.server_text, int(self.port_text)))
                 new_sock.settimeout(None)
-                print(f"[RECONNECT] ✓ Spojení navázáno!")
+                log_msg(INFO, f"[RECONNECT] Spojení navázáno!")
                 
                 # 3. Odeslání LOGI
-                print(f"[RECONNECT] Odesílám LOGI zprávu...")
+                log_msg(INFO, f"[RECONNECT] Odesílám LOGI zprávu...")
                 packet = build_message(Message_types.LOGI.value, self.login_text)
                 new_sock.sendall(packet)
-                print(f"[RECONNECT] ✓ LOGI odeslán")
+                log_msg(INFO, f"[RECONNECT] LOGI odeslán")
                 
                 # 4. Předání řízení síťovému vláknu
-                print(f"[RECONNECT] Předávám socket network threadu...")
+                log_msg(INFO, f"[RECONNECT] Předávám socket network threadu...")
                 self.sock = new_sock
                 self.network_thread = Network(self.sock, self.message_queue)
                 self.network_thread.start()
                 self.connected = True
-                print(f"[RECONNECT] ✓ Network thread spuštěn")
+                log_msg(INFO, f"[RECONNECT] Network thread spuštěn")
                 self._reconnecting = False
-                print(f"[RECONNECT] ========== Reconnect proces iniciován, čekám na OKAY/RECO ==========")
+                log_msg(INFO, f"[RECONNECT] Reconnect proces iniciován, čekám na OKAY/RECO ")
                 return 
                 
             except Exception as e:
-                print(f"[RECONNECT] !!! Pokus {attempts} selhal: {type(e).__name__}: {e}")
+                log_msg(ERROR, f"[RECONNECT] !!! Pokus {attempts} selhal: {type(e).__name__}: {e}")
                 import traceback
                 traceback.print_exc()
                 
@@ -369,7 +369,7 @@ class ClientGUI:
                         pass
         
         # Pokud jsme vyčerpali všechny pokusy
-        print(f"[RECONNECT] ========== Reconnect FAILED po {attempts} pokusech ==========")
+        log_msg(ERROR, f"[RECONNECT] Reconnect FAILED po {attempts} pokusech ")
         self._reconnecting = False
         self.game_console.log(f"Reconnect selhal po {attempts} pokusech", True)
     
@@ -384,7 +384,7 @@ class ClientGUI:
                 
                 # PRIORITA 1: network_lost - okamžitá reakce
                 if item[0] == "network_lost":
-                    print(f"[GUI] !!! NETWORK_LOST DETEKOVÁN: {item[1]} !!!")
+                    log_msg(ERROR, f"[GUI] !!! NETWORK_LOST DETEKOVÁN: {item[1]} !!!")
                     self.game_console.log("Spojení ztraceno, pokouším se o reconnect", True)
                     self.connected = False
                     self.game_state = GameState.DISCONNECTED
@@ -397,14 +397,14 @@ class ClientGUI:
                 
                 # PRIORITA 2: error
                 if item[0] == "error":
-                    print(f"[GUI] ERROR: {item[1]}")
+                    log_msg(ERROR, f"[GUI] ERROR: {item[1]}")
                     self.connected = False
                     self.game_state = GameState.DISCONNECTED
                     continue
                 
                 # PRIORITA 3: reconnect_success
                 if item[0] == "reconnect_success":
-                    print(f"[GUI] Reconnect success signal")
+                    log_msg(INFO, f"[GUI] Reconnect success signal")
                     # Toto je jen informativní, skutečný reconnect potvrdí RECO zpráva
                     continue
 
@@ -431,7 +431,7 @@ class ClientGUI:
                             self.game_console.log(message, False)
                         
                         elif type_msg == Message_types.RECO.value:
-                            print(f"[GUI] ✓ RECO přijato - reconnect úspěšný!")
+                            log_msg(INFO, f"[GUI] RECO přijato - reconnect úspěšný!")
                             self.connected = True
                             self.game_state = GameState.CONNECTED
                             self._reconnecting = False
@@ -538,6 +538,9 @@ class ClientGUI:
                             self.rooms_list = []
                             self.game_console.log(message, True)
 
+                        elif type_msg == Message_types.ECNT.value:
+                            self.game_console.log(message, True)
+
                         elif type_msg == Message_types.OCRT.value:
                             try:
                                 self.current_room = int(message)
@@ -555,7 +558,7 @@ class ClientGUI:
                                         self.current_room = message
                                         break
                             except Exception as e:
-                                print("Neexistující místnost.")
+                                log_msg(ERROR, "Neexistující místnost.")
                         
                         elif type_msg == Message_types.QUIT.value:
                             self.connected = False
@@ -581,9 +584,9 @@ class ClientGUI:
                                 karta_v_balicku = splitted[3].strip()
                                 pocet_karet_protihrace = splitted[4].strip()
                                 postupky = splitted[5].strip()
-                                print(karty + "\n" + poradi + "\n" + vyhozena_karta + "\n" + karta_v_balicku + "\n" + pocet_karet_protihrace + "\n" + postupky)
+                                log_msg(INFO, karty + "\n" + poradi + "\n" + vyhozena_karta + "\n" + karta_v_balicku + "\n" + pocet_karet_protihrace + "\n" + postupky)
                             except:
-                                print(f"Špatný formát STRT {message}")
+                                log_msg(ERROR, f"Špatný formát STRT {message}")
                             self.game_state = GameState.IN_GAME
                             self.game_console.delete()
 
@@ -619,8 +622,6 @@ class ClientGUI:
                             self.cards_list = []
                             for i in range(len(splitted_cards)):
                                 self.cards_list.append(splitted_cards[i])
-
-                            print(self.cards_list)
 
                             self.new_cards = True
 
@@ -709,6 +710,7 @@ class ClientGUI:
                         if type_msg == Message_types.LBBY.value:
                             self.game_state = GameState.CONNECTED
                             self.game_console.delete()
+                            self.rooms_list = []
 
                         elif type_msg == Message_types.PAUS.value:
                             self.game_state = GameState.CONNECTED
@@ -739,7 +741,7 @@ class ClientGUI:
                 break
         
         if processed_count > 0:
-            print(f"[GUI] Zpracováno {processed_count} zpráv")
+            log_msg(INFO, f"[GUI] Zpracováno {processed_count} zpráv")
 
     def try_connect(self):
         if not self.login_text.strip():
@@ -813,7 +815,7 @@ class ClientGUI:
         actual_values = values.copy()
         if has_ace and has_high_cards and not has_low_cards:
             actual_values["A"] = 14  # Přepneme Eso na vysoké
-            print(f"[LOG] Detekováno vysoké Eso")
+            log_msg(INFO, f"[LOG] Detekováno vysoké Eso")
 
         # 3. Seřazení podle aktuálních hodnot
         normal.sort(key=lambda c: actual_values[c[0]])
@@ -920,7 +922,7 @@ class ClientGUI:
 
                 for button in self.room_buttons:
                     if button["rect"].collidepoint(mouse_pos):
-                        print(f"RCNT|{button['room_index']}")
+                        # print(f"RCNT|{button['room_index']}")
                         self.current_room_name = button["room_index"]
                         self.send_message(Message_types.RCNT.value, f"{button['room_index']}")
                 
