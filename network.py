@@ -97,8 +97,8 @@ class Network(threading.Thread):
         self.start_heartbeat()
 
         try:
-            self.sock.settimeout(2.0)
-            print(f"[NETWORK] Socket timeout nastaven na 2.0s")
+            self.sock.settimeout(4.0)
+            print(f"[NETWORK] Socket timeout nastaven na 4.0s")
         except Exception as e:
             print(f"[NETWORK] Nepodařilo se nastavit timeout: {e}")
 

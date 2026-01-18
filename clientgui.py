@@ -567,6 +567,7 @@ class ClientGUI:
 
                         elif type_msg == Message_types.ODIS.value:
                             self.game_state = GameState.CONNECTED
+                            self.room_owner = False
 
                         elif type_msg == Message_types.PRDY.value:
                             self.room_inroom_players_ready = message
@@ -590,6 +591,8 @@ class ClientGUI:
                             self.room_players_info.clear()
                             self.sequence_list = []
                             self.discard = ""
+                            self.room_status_ready = not self.room_status_ready
+
 
                         elif type_msg == Message_types.RINF.value:
                             self.room_players_info = []
@@ -705,6 +708,7 @@ class ClientGUI:
                     elif self.game_state == GameState.GAME_DONE:
                         if type_msg == Message_types.LBBY.value:
                             self.game_state = GameState.CONNECTED
+                            self.game_console.delete()
 
                         elif type_msg == Message_types.PAUS.value:
                             self.game_state = GameState.CONNECTED
@@ -729,6 +733,7 @@ class ClientGUI:
                             self.game_state = GameState.CONNECTED
                             self.game_console.delete()
                             self.game_console.log(message, True)
+                            self.rooms_list = []
 
             except queue.Empty:
                 break
