@@ -59,5 +59,5 @@ def receive_full_message(sock: socket.socket) -> tuple[str, str]:
         message += chunk
     
     message_final = message.decode("utf-8")
-    print(f"Přijímám: {magic}{type_msg}{length}{message_final}")
+    log_msg(INFO, f"Přijímám: {magic}{type_msg}{length}{message_final}")
     return type_msg, message_final
