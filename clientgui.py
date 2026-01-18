@@ -251,7 +251,7 @@ class ClientGUI:
                         try:
                             rank_value = int(rank_first)
                         except Exception as e:
-                            print(e)
+                            log_msg(ERROR, e)
                     
                     suit_first = values[self.cards_list[i][1]]
                     rank_second = self.cards_list[j][0]
@@ -263,7 +263,7 @@ class ClientGUI:
                         try:
                             rank_value_2 = int(rank_second)
                         except Exception as e:
-                            print(e)
+                            log_msg(ERROR, e)
 
                     suit_second = values[self.cards_list[j][1]]
                     first = rank_value + suit_first
