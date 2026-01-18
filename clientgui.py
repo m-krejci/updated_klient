@@ -352,7 +352,7 @@ class ClientGUI:
                 self.network_thread.start()
                 self.connected = True
                 print(f"[RECONNECT] ✓ Network thread spuštěn")
-                
+                self._reconnecting = False
                 print(f"[RECONNECT] ========== Reconnect proces iniciován, čekám na OKAY/RECO ==========")
                 return 
                 
